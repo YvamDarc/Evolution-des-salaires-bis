@@ -232,33 +232,42 @@ with col_down:
     st.plotly_chart(fig_down, use_container_width=True)
 
 # --------------------------------------------------------
-# 6. NIVEAU vs VOLATILITÉ
+# 6. NIVEAU vs VOLATILITÉ (CORRIGÉ)
 # --------------------------------------------------------
 
 st.subheader("🌪 Stabilité vs niveau de coût")
 
-fig_scatter = px.scatter(
-    resume,
-    x="moy_2024",
-    y="ecart_type",
-    size="var_abs",
-    color="var_abs",
-    hover_data=["Salarie", "moy_2025", "var_rel_%", "nb_anomalies"],
-    title="Niveau moyen 2024 vs volatilité (avec variation comme taille/couleur)",
-)
-fig_scatter.update_layout(
-    xaxis_title="Coût moyen 2024 (€)",
-    yaxis_title="Écart-type du coût mensuel (€)",
-)
-st.plotly_chart(fig_scatter, use_container_width=True)
+# On enlève les NaN et on impose une taille positive
+df_scatter = resume.dropna(subset=["moy_2024", "ecart_type", "var_abs"]).copy()
 
-st.markdown(
-    """
+if df_scatter.empty:
+    st.info("Pas assez de données complètes pour afficher le graphique de stabilité.")
+else:
+    df_scatter["size_var"] = df_scatter["var_abs"].abs()
+    # Si tout est à 0, Plotly peut ne rien afficher, mais ce n'est pas bloquant
+
+    fig_scatter = px.scatter(
+        df_scatter,
+        x="moy_2024",
+        y="ecart_type",
+        size="size_var",         # taille = valeur absolue
+        color="var_abs",         # couleur = hausse ou baisse
+        hover_data=["Salarie", "moy_2025", "var_rel_%", "nb_anomalies"],
+        title="Niveau moyen 2024 vs volatilité (avec variation comme taille/couleur)",
+    )
+    fig_scatter.update_layout(
+        xaxis_title="Coût moyen 2024 (€)",
+        yaxis_title="Écart-type du coût mensuel (€)",
+    )
+    st.plotly_chart(fig_scatter, use_container_width=True)
+
+    st.markdown(
+        """
 **Lecture :**
 - Les points en haut sont les salariés **instables** (forte variabilité).
 - Les bulles grandes et colorées représentent les salariés qui **pèsent le plus** dans l'évolution globale.
 """
-)
+    )
 
 # --------------------------------------------------------
 # 7. ANOMALIES
@@ -295,7 +304,10 @@ st.dataframe(
 st.markdown("### 🧠 Synthèse automatique")
 
 top_contrib = resume_sorted.head(5)
-part_top = (top_contrib["var_abs"].sum() / delta_total * 100) if delta_total != 0 else 0
+if delta_total != 0:
+    part_top = (top_contrib["var_abs"].sum() / delta_total * 100)
+else:
+    part_top = 0
 
 st.markdown(
     f"""
